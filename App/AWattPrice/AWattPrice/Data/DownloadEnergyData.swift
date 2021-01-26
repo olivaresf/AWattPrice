@@ -129,12 +129,13 @@ extension AwattarData {
             decodedData = try jsonDecoder.decode(EnergyData.self, from: data)
             let currentHour = Calendar.current.date(bySettingHour: Calendar.current.component(.hour, from: Date()), minute: 0, second: 0, of: Date())!
 
-            var usedPricesDecodedData = [EnergyPricePoint]()
             var minPrice: Double?
             var maxPrice: Double?
 
+            let usedPricesDecodedData = decodedData.prices
+                .filter { Date(timeIntervalSince1970: TimeInterval($0.startTimestamp)) >= currentHour }
+            
             for hourPoint in decodedData.prices {
-                if Date(timeIntervalSince1970: TimeInterval(hourPoint.startTimestamp)) >= currentHour {
                     var marketprice: Double = (hourPoint.marketprice * 100).rounded() / 100 // Round to two decimal places
 
                     if marketprice.sign == .minus && marketprice == 0 {
@@ -154,7 +155,6 @@ extension AwattarData {
                     } else if marketprice < minPrice! {
                         minPrice = marketprice
                     }
-                }
             }
 
             let currentEnergyData = EnergyData(prices: usedPricesDecodedData, minPrice: minPrice ?? 0, maxPrice: maxPrice ?? 0)
