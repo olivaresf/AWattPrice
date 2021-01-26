@@ -134,13 +134,17 @@ extension AwattarData {
 
             let usedPricesDecodedData = decodedData.prices
                 .filter { Date(timeIntervalSince1970: TimeInterval($0.startTimestamp)) >= currentHour }
+                .map { (hourPoint) -> EnergyPricePoint in
+                    let marketprice: Double
+                    if hourPoint.marketprice <= 0 {
+                        marketprice = 0
+                    } else {
+                        marketprice = (hourPoint.marketprice * 100).rounded() / 100 // Round to two decimal places
+                    }
+                }
             
             for hourPoint in decodedData.prices {
-                    var marketprice: Double = (hourPoint.marketprice * 100).rounded() / 100 // Round to two decimal places
-
-                    if marketprice.sign == .minus && marketprice == 0 {
-                        marketprice = 0
-                    }
+                    
 
                     usedPricesDecodedData.append(EnergyPricePoint(startTimestamp: hourPoint.startTimestamp, endTimestamp: hourPoint.endTimestamp, marketprice: marketprice))
 
