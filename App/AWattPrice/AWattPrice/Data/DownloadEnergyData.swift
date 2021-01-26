@@ -129,35 +129,27 @@ extension AwattarData {
             decodedData = try jsonDecoder.decode(EnergyData.self, from: data)
             let currentHour = Calendar.current.date(bySettingHour: Calendar.current.component(.hour, from: Date()), minute: 0, second: 0, of: Date())!
 
-            var usedPricesDecodedData = [EnergyPricePoint]()
-            var minPrice: Double?
-            var maxPrice: Double?
-
-            for hourPoint in decodedData.prices {
-                if Date(timeIntervalSince1970: TimeInterval(hourPoint.startTimestamp)) >= currentHour {
-                    var marketprice: Double = (hourPoint.marketprice * 100).rounded() / 100 // Round to two decimal places
-
-                    if marketprice.sign == .minus && marketprice == 0 {
+            let usedPricesDecodedData = decodedData.prices
+                .filter { Date(timeIntervalSince1970: TimeInterval($0.startTimestamp)) >= currentHour }
+                .map { (hourPoint) -> EnergyPricePoint in
+                    let marketprice: Double
+                    if hourPoint.marketprice <= 0 {
                         marketprice = 0
+                    } else {
+                        marketprice = (hourPoint.marketprice * 100).rounded() / 100 // Round to two decimal places
                     }
-
-                    usedPricesDecodedData.append(EnergyPricePoint(startTimestamp: hourPoint.startTimestamp, endTimestamp: hourPoint.endTimestamp, marketprice: marketprice))
-
-                    if maxPrice == nil || marketprice > maxPrice! {
-                        maxPrice = marketprice
-                    }
-
-                    if minPrice == nil {
-                        if marketprice < 0 {
-                            minPrice = marketprice
-                        }
-                    } else if marketprice < minPrice! {
-                        minPrice = marketprice
-                    }
+                    
+                    return EnergyPricePoint(startTimestamp: hourPoint.startTimestamp,
+                                            endTimestamp: hourPoint.endTimestamp,
+                                            marketprice: marketprice)
                 }
-            }
+            
+            let minPrice = usedPricesDecodedData.min { $0.marketprice < $1.marketprice }
+            let maxPrice = usedPricesDecodedData.max { $0.marketprice < $1.marketprice }
 
-            let currentEnergyData = EnergyData(prices: usedPricesDecodedData, minPrice: minPrice ?? 0, maxPrice: maxPrice ?? 0)
+            let currentEnergyData = EnergyData(prices: usedPricesDecodedData,
+                                               minPrice: minPrice?.marketprice ?? 0,
+                                               maxPrice: maxPrice?.marketprice ?? 0)
 
             DispatchQueue.main.async {
                 if currentEnergyData.prices.isEmpty {
